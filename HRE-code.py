@@ -638,38 +638,42 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
             elif Grid == "Ultra Fine":
                 ScaleF == 1
 
+            wedge_angle = 2.5 * np.pi/180
+            L_ch = 0.5
+            H_ch = 5 * De
+
             with open("Nozzle_axs", 'w') as file:
                 #file.write("convertToMeters 0.001; //all dimensions are in mm this way \n")
                 file.write("vertices\n(\n")
-                file.write(f"({x_inlet[0]}  0  0.0005) //0\n")
-                file.write(f"({x_inlet[0]} {y_inlet[0]} 0.0005) //1\n")
-                file.write(f"({x_c[0]} {Dc/2} 0.0005) //2\n")
-                file.write(f"({x_t[-1]} {y_t[-1]} 0.0005) //3\n")
-                file.write(f"({x_t[-1]} 0  0.0005) //4\n")
-                file.write(f"({x_c[0]} 0  0.0005) //5\n \n")
+                file.write(f"({x_inlet[0]}  0  0) //0\n")
+                file.write(f"({x_inlet[0]} {y_inlet[0]} {y_inlet[0]*np.tan(wedge_angle/2)}) //1\n")
+                file.write(f"({x_c[0]} {Dc/2} {y_c[0]*np.tan(wedge_angle/2)}) //2\n")
+                file.write(f"({x_t[-1]} {y_t[-1]} {y_t[-1]*np.tan(wedge_angle/2)}) //3\n")
+                file.write(f"({x_t[-1]} 0  0) //4\n")
+                file.write(f"({x_c[0]} 0  0) //5\n \n")
 
                 
-                file.write(f"({x_inlet[0]} {y_inlet[0]} -0.0005) //6\n")
-                file.write(f"({x_c[0]} {Dc/2} -0.0005) //7\n")
-                file.write(f"({x_t[-1]} {y_t[-1]} -0.0005) //8\n")
+                file.write(f"({x_inlet[0]} {y_inlet[0]} {-1 * y_inlet[0]*np.tan(wedge_angle/2)}) //6\n")
+                file.write(f"({x_c[0]} {Dc/2} {-1 * y_c[0]*np.tan(wedge_angle/2)}) //7\n")
+                file.write(f"({x_t[-1]} {y_t[-1]} {-1 * y_t[-1]*np.tan(wedge_angle/2)}) //8\n")
                 
-                file.write(f"(0.500  {y_t[-1]} 0.0005) //9 \n")
-                file.write(f"(0.500  0 0.0005) //10 \n")
-                file.write(f"({x_t[-1]}  0.100 0.0005) //11 \n")
-                file.write(f"(0.500  0.100 0.0005) //12 \n")
-                file.write(f"(0.500  {y_t[-1]} -0.0005) //13 \n")
+                file.write(f"({L_ch}  {y_t[-1]} {y_t[-1]*np.tan(wedge_angle/2)}) //9 \n")
+                file.write(f"({L_ch}  0 0) //10 \n")
+                file.write(f"({x_t[-1]}  {H_ch} {H_ch*np.tan(wedge_angle/2)}) //11 \n")
+                file.write(f"({L_ch}  {H_ch} {H_ch*np.tan(wedge_angle/2)}) //12 \n")
+                file.write(f"({L_ch}  {y_t[-1]} {-1 * y_t[-1]*np.tan(wedge_angle/2)}) //13 \n")
                 
-                file.write(f"({x_t[-1]}  0.100 {(-1)*(0.1-y_t[-1])*(0.001/y_t[-1]) + 0.0005}) //14 \n")
-                file.write(f"(0.500  0.100 {(-1)*(0.1-y_t[-1])*(0.001/y_t[-1]) + 0.0005}) //15 \n")
+                file.write(f"({x_t[-1]}  {H_ch} {-1 * H_ch*np.tan(wedge_angle/2)} ) //14 \n")
+                file.write(f"({L_ch}  {H_ch}  {-1 * H_ch*np.tan(wedge_angle/2)}) //15 \n")
                 
 
 
                 file.write(");\n\nblocks\n(\n")
                 # Example: Write a single block definition using the vertices
                 # Adjust this according to your actual block structure
-                file.write(f"    hex (0 1 2 5 6 7 5 0) ({int(150/ScaleF)} {int(25/ScaleF)} 1) simpleGrading (0.1 0.1 1) //block 0 \n")
-                file.write(f"    hex (5 2 3 4 7 8 4 5) ({int(150/ScaleF)} {int(250/ScaleF)} 1) simpleGrading (0.1 0.2 1) //block 1 \n")
-                file.write(f"    hex (4 3 9 10 8 13 10 4) ({int(150/ScaleF)} {int(250/ScaleF)} 1) simpleGrading (0.1 25 1) //block 2 \n")
+                file.write(f"    hex (0 6 1 0 5 7 2 5) ({int(150/ScaleF)} 1 {int(25/ScaleF)}) simpleGrading (0.1 1 0.1) //block 0 \n")
+                file.write(f"    hex (5 7 2 5 4 8 3 4) ({int(150/ScaleF)} 1 {int(250/ScaleF)}) simpleGrading (0.1 1 0.2) //block 1 \n")
+                file.write(f"    hex (4 8 3 4 10 13 9 10) ({int(150/ScaleF)} 1 {int(250/ScaleF)}) simpleGrading (0.1 1 25) //block 2 \n")
                 file.write(f"    hex (3 11 12 9 8 14 15 13) ({int(120/ScaleF)} {int(250/ScaleF)} 1) simpleGrading (50 25 1) //block 3 \n")
                 #file.write(f"    hex (9 22 23 18 3 20 21 14) ({20/ScaleF} {120/ScaleF} 1) simpleGrading (30 50 1) //block 4 \n")
                 file.write(");\n\nedges\n(\n")
@@ -677,11 +681,11 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
                 # Adjust this according to your actual curves
                 file.write("polyLine 2 3 \n ( \n")
                 for i in range(len(ContourCoordOF) - 1):
-                    file.write(f"({ContourCoordOF.iloc[i]['x']} {ContourCoordOF.iloc[i]['y']} 0.0005)\n")
+                    file.write(f"({ContourCoordOF.iloc[i]['x']} {ContourCoordOF.iloc[i]['y']} {ContourCoordOF.iloc[i]['y']*np.tan(wedge_angle/2)})\n")
                 file.write(") \n")
                 file.write("polyLine 7 8 \n ( \n")
                 for i in range(len(ContourCoordOF) - 1):
-                    file.write(f"({ContourCoordOF.iloc[i]['x']} {ContourCoordOF.iloc[i]['y']} -0.0005)\n")
+                    file.write(f"({ContourCoordOF.iloc[i]['x']} {ContourCoordOF.iloc[i]['y']} {-1 * ContourCoordOF.iloc[i]['y']*np.tan(wedge_angle/2)})\n")
                 file.write(") \n")
                 
                 file.write(");\n\nboundary\n(\n")
@@ -690,7 +694,8 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
                 file.write("    outlet-1\n    {\n        type patch;\n        faces\n        (\n            (10 13 9 10)\n (12 9 13 15)\n        );\n    }\n")
                 file.write("    outlet-2\n    {\n        type patch;\n        faces\n        (\n             (11 12 15 14)\n        );\n    }\n")
                 file.write("    nozzle\n    {\n        type wall;\n        faces\n        (\n            (1 2 7 6)\n (2 3 8 7)\n (3 11 14 8)\n );\n    }\n")
-                file.write("    bottom\n    {\n        type wedge;\n        faces\n        (\n            (0 5 2 1)\n (5 4 3 2)\n (4 10 9 3)\n (3 9 12 11)\n (0 6 7 5)\n (5 7 8 4)\n (4 8 13 10)\n (8 14 15 13)\n   );\n    }\n")
+                file.write("    wedge1\n    {\n        type wedge;\n        faces\n        (\n            (0 5 2 1)\n (5 4 3 2)\n (4 10 9 3)\n (3 9 12 11)\n );\n    }\n")
+                file.write("    wedge2\n    {\n        type wedge;\n        faces\n        (\n            (0 6 7 5)\n (5 7 8 4)\n (4 8 13 10)\n (8 14 15 13)\n   );\n    }\n")
                 file.write(");\n \n // ************************************************************************* //")
 
         
@@ -1162,7 +1167,7 @@ functions.
 """
 It_Req(HRE_1,20, 84,3000,0.7)
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 0.8 ,45, 35, 5,"OF","True")
-HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF","True")
-#HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF_axs","True")
-#THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
-#PERF_ANSYS(HRE_1, HRE_1_Geo, "TRUE", "CSV")
+#HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF","True")
+HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF_axs","True")
+THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
+PERF_ANSYS(HRE_1, HRE_1_Geo, "TRUE", "CSV")
