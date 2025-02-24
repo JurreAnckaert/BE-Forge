@@ -795,32 +795,33 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
         gmsh.finalize()
 
     elif export == "FreeCad":
-        # Create a new DXF document
+    # Create a new DXF document
         doc = ezdxf.new()
         msp = doc.modelspace()
-        for i in range(len(ContourCoordInt["x"]) - 1):
-            msp.add_line(
-                (ContourCoordInt["x"].iloc[i], ContourCoordInt["y"].iloc[i]), 
-                (ContourCoordInt["x"].iloc[i + 1], ContourCoordInt["y"].iloc[i + 1])
-            )
-        # Add the outer contour
-        for i in range(len(ContourCoordIntsup["x"]) - 1):
-            msp.add_line(
-                (ContourCoordIntsup["x"].iloc[i], ContourCoordIntsup["y"].iloc[i]), 
-                (ContourCoordIntsup["x"].iloc[i + 1], ContourCoordIntsup["y"].iloc[i + 1])
-            )
 
-        # Connect start points with a vertical line
-        msp.add_line((x_start_inner, y_start_inner), (x_start_outer, y_start_outer))
+        # Prepare points for the inner contour spline
+        inner_points = [(row["x"], row["y"]) for _, row in ContourCoordInt.iterrows()]
+        outer_points = [(row["x"], row["y"]) for _, row in ContourCoordIntsup.iterrows()]
 
-        # Connect end points with a vertical line
-        msp.add_line((x_end_inner, y_end_inner), (x_end_outer, y_end_outer))
+        # Add spline for the inner contour
+        if len(inner_points) > 1:  # Ensure there are enough points for a spline
+            msp.add_spline(inner_points, degree=3)  # Cubic spline (degree=3) for smoothness
+
+        # Add spline for the outer contour
+        if len(outer_points) > 1:
+            msp.add_spline(outer_points, degree=3)
+
+        # Connect the start and end points of inner and outer contours with lines
+        x_start_inner, y_start_inner = inner_points[0]
+        x_end_inner, y_end_inner = inner_points[-1]
+        x_start_outer, y_start_outer = outer_points[0]
+        x_end_outer, y_end_outer = outer_points[-1]
+
+        msp.add_line((x_start_inner, y_start_inner), (x_start_outer, y_start_outer))  # Start connection
+        msp.add_line((x_end_inner, y_end_inner), (x_end_outer, y_end_outer))          # End connection
 
         # Save DXF file
-        print("Reached saving")
         doc.saveas("nozzle_contour.dxf")
-                
-
 
 
 
@@ -1231,6 +1232,6 @@ functions.
 It_Req(HRE_1,20, 84,3000,0.7)
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 0.8 ,45, 35, 5,"OF","True")
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF","True")
-HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"CSV","True")
+HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"FreeCad","True")
 #THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
 #PERF_ANSYS(HRE_1, HRE_1_Geo, "TRUE", "CSV")
