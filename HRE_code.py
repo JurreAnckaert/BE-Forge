@@ -19,6 +19,7 @@ import sympy as sy
 from scipy.optimize import fsolve
 from scipy.optimize import minimize
 from scipy.integrate import simpson
+from scipy.interpolate import UnivariateSpline
 import CEA_Wrap as CW
 from CEA_Wrap import Fuel, Oxidizer, RocketProblem, ThermoInterface, DataCollector #https://github.com/civilwargeeky/CEA_Wrap
 import CoolProp                                   # fluid properties http://www.coolprop.org
@@ -28,6 +29,7 @@ from CoolProp.Plots import SimpleCompressionCycle # to plot cycles on diagrams
 from sympy import Symbol, latex
 import gmsh
 import ezdxf
+import trimesh 
 
 #%% ENGINE PROFILES
 HRE_1 = {
@@ -536,6 +538,7 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
         y_combined = np.concatenate((np.append(y_coord, y_c), np.append(y_coord, y_entr),
                                          np.append(y_coord, y_exit), np.append(y_coord, y_t),np.append(y_coord,y_inlet)))
         
+        
         y_combinedsup = [x + Profile["wall thickness"]*10**(-3) for x in y_combined]
 
             #,np.append(y_coord,y_inlet)
@@ -545,6 +548,8 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
         ContourCoordIntsup = ContourCoordIntsup.sort_values("x",ignore_index=True)
         ContourCoordInt = ContourCoordInt.drop_duplicates()
         ContourCoordIntsup = ContourCoordIntsup.drop_duplicates()
+
+        # ... (rest of the code for ContourCoordInt, ContourCoordIntsup, plotting, and export remains the same)
 
 
         if export == "OF":
@@ -822,8 +827,90 @@ def CH_Geo(Profile, Nozzle_Type, Ac_At, f_pct,Phi_i, Phi_n, Phi_e, export,plotEn
 
         # Save DXF file
         doc.saveas("nozzle_contour.dxf")
+    elif export == "STL":
 
+        # Extract 2D contour points (x, y) from DataFrames
+        inner_points = np.array([[row["x"], row["y"]] for _, row in ContourCoordInt.iterrows()])
+        outer_points = np.array([[row["x"], row["y"]] for _, row in ContourCoordIntsup.iterrows()])
 
+        # Number of angular segments for revolution (controls smoothness)
+        n_segments = 246  # Adjust for desired resolution (higher = smoother, but larger file)
+
+        # Generate 3D vertices by revolving the 2D contours around the x-axis
+        vertices = []
+        theta = np.linspace(0, 2 * np.pi, n_segments, endpoint=False)  # Angular steps
+
+        # Inner contour vertices
+        for x, y in inner_points:
+            for angle in theta:
+                vertices.append([x, y * np.cos(angle), y * np.sin(angle)])
+
+        # Outer contour vertices
+        for x, y in outer_points:
+            for angle in theta:
+                vertices.append([x, y * np.cos(angle), y * np.sin(angle)])
+
+        vertices = np.array(vertices)
+
+        # Generate faces (triangles) for the mesh
+        faces = []
+        n_points_per_contour = len(inner_points)
+        total_points_per_layer = n_points_per_contour * n_segments
+
+        # Inner surface faces
+        for i in range(n_points_per_contour - 1):
+            for j in range(n_segments):
+                j_next = (j + 1) % n_segments
+                v0 = i * n_segments + j
+                v1 = i * n_segments + j_next
+                v2 = (i + 1) * n_segments + j_next
+                v3 = (i + 1) * n_segments + j
+                faces.append([v0, v1, v2])  # First triangle
+                faces.append([v0, v2, v3])  # Second triangle
+
+        # Outer surface faces (offset by total inner points)
+        offset = total_points_per_layer
+        for i in range(len(outer_points) - 1):
+            for j in range(n_segments):
+                j_next = (j + 1) % n_segments
+                v0 = offset + i * n_segments + j
+                v1 = offset + i * n_segments + j_next
+                v2 = offset + (i + 1) * n_segments + j_next
+                v3 = offset + (i + 1) * n_segments + j
+                faces.append([v0, v2, v1])  # Reverse winding for outer surface
+                faces.append([v0, v3, v2])
+
+        # Connect inner and outer contours at the start and end
+        for j in range(n_segments):
+            j_next = (j + 1) % n_segments
+            # Start cap (x=min)
+            v0 = j
+            v1 = j_next
+            v2 = offset + j_next
+            v3 = offset + j
+            faces.append([v0, v2, v1])
+            faces.append([v0, v3, v2])
+
+            # End cap (x=max)
+            v0 = (n_points_per_contour - 1) * n_segments + j
+            v1 = (n_points_per_contour - 1) * n_segments + j_next
+            v2 = offset + (len(outer_points) - 1) * n_segments + j_next
+            v3 = offset + (len(outer_points) - 1) * n_segments + j
+            faces.append([v0, v1, v2])
+            faces.append([v0, v2, v3])
+
+        faces = np.array(faces)
+
+        # Create the trimesh object
+        nozzle_mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+        # Ensure the mesh is watertight
+        nozzle_mesh.fix_normals()
+
+        # Export to STL
+        stl_file = f"nozzle_{Profile['name']}.stl"
+        nozzle_mesh.export(stl_file)
+        print(f"STL file saved as '{stl_file}'")
 
 
     #%% Temperature, pressure and velocity across nozzle
@@ -1232,6 +1319,6 @@ functions.
 It_Req(HRE_1,20, 84,3000,0.7)
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 0.8 ,45, 35, 5,"OF","True")
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF","True")
-HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"FreeCad","True")
+HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"STL","True")
 #THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
 #PERF_ANSYS(HRE_1, HRE_1_Geo, "TRUE", "CSV")
