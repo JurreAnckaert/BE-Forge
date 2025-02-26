@@ -28,6 +28,9 @@ from CoolProp.CoolProp import PropsSI             # to calulate properties of su
 from CoolProp.Plots import PropertyPlot           # to plot property diagrams
 from CoolProp.Plots import SimpleCompressionCycle # to plot cycles on diagrams
 from sympy import Symbol, latex
+import traceback
+from typing import Optional, Dict, Tuple, Callable
+import sympy
 import gmsh
 import ezdxf
 
@@ -162,6 +165,25 @@ def OF_ANSYS(Profile):
         
         
     return {"C*":C_star_list,"Cf":Cf_list,"Isp":ISP_e_list,"OF":OF_Range}
+def PrandtlMeyer(gamma:float, M:float=1)->float:
+    """
+    Computes the Prandtl-Meyer expansion angle from the Mach number and the ratio
+    of specific heats (gamma).The Prandtl-Meyer angle is expressed in Radians!
+
+    Example:
+        PrandtlMeyer(gamma = 1.4, M = 1.5)
+    Output: 0.20778 [Rad]
+    """
+    try:
+        if M >=1:
+            Nu = sympy.sqrt((gamma+1)/(gamma-1))*sympy.atan(sympy.sqrt((gamma-1)/(gamma+1)*(M**2 -1)))- sympy.atan(sympy.sqrt(M**2 -1))
+            return Nu
+        else:
+            print("M should be larger than or equal to 1")
+    except Exception as e:
+        print("An error occurred:")
+        traceback.print_exc()
+
 
 #OF_ANSYS(HRE_1)
 
@@ -349,7 +371,7 @@ def It_Req(Profile,m_rocket,Launch_angle,TgtAlt,Perf_eff):
 
 #%% CHAMBER GEOMETRY
 
-def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:float=45, Phi_n:float=45, Phi_e:float=35, Phi_ex:float=5,Twall:float=5, export:str = "CSV", plotEnable:bool = False, Grid = "Coarse"):
+def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:float=45, Phi_n:float=45, Phi_e:float=None, Phi_ex:float=5,Twall:float=5, export:str = "CSV", plotEnable:bool = False, Grid = "Coarse"):
     
     gamma_c = CEA_RUN(Profile)["gamma_c"]
     print("gamma_c",gamma_c)
@@ -359,11 +381,19 @@ def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:flo
     R_spec = CEA_RUN(Profile)["Rspec"]
     a_t = CEA_RUN(Profile)["a_c"]
     Pc = CEA_RUN(Profile)["Pc"]
+    M_e = CEA_RUN(Profile)["Me"]
+    if Phi_e == None:
+        Max_exp = (2/3)*(PrandtlMeyer(gamma_t,M_e)*180/np.pi)/2
+        Phi_e = int(Max_exp)
+        print('phi_e',Phi_e)
+        
+
+
     #flow divergence losses calculation
     if Nozzle_Type == "Conical":
-        e_div = 1 - (1+np.cos(Phi_e*np.pi/180))/2
+        e_div = 1 - (1+np.cos(Phi_ex*np.pi/180))/2
     elif Nozzle_Type =="Bell":
-        e_div = 0.5*(1-np.cos(((Phi_n+Phi_e)*np.pi/180)/2))
+        e_div = 0.5*(1-np.cos(((Phi_e+Phi_ex)*np.pi/180)/2))
     V_c = 1/Rho_c  #Chamber specific volume [m³/kg]
     V_t = V_c * ((gamma_c + 1)/2)**(1/(gamma_c - 1))
     T_t = 2*Tc/(gamma_t + 1)
@@ -372,6 +402,7 @@ def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:flo
     m_tot = Profile["DesignThrust"]*(1+e_div)/v_e     #Mass flow rate for the required thrust
     print("m_tot",m_tot,"kg/s")
     At = m_tot * V_t/a_t 
+    print(type(At))
     Dt = np.sqrt(At*4/(np.pi))
     print("Dt", Dt , "m")
     Ae = At * (((gamma_c + 1)/2)**(1/(gamma_c - 1)) * ((Profile["Popt"]/1e5)/Profile["DesignChamberPressure"])**(1/gamma_c)*np.sqrt((gamma_c + 1)/(gamma_c - 1) * (1-((Profile["Popt"]/100000)/Profile["DesignChamberPressure"])**((gamma_c - 1)/gamma_c) )))**(-1)
@@ -832,7 +863,7 @@ def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:flo
         msp.add_line((x_end_inner, y_end_inner), (x_end_outer, y_end_outer))          # End connection
 
         # Save DXF file
-        doc.saveas(f"nozzle_contour.dxf")
+        doc.saveas(f'contour{Profile["name"]}{Twall}.dxf')
     elif export == "DXF_sim":
         # Create a new DXF document
         doc = ezdxf.new()
@@ -877,7 +908,7 @@ def CH_Geo(Profile:str, Nozzle_Type:str, Ac_At:float=10, f_pct:float=1,Phi_i:flo
         msp.add_line((x_end_inner, y_end_inner), (x_end_outer, y_end_outer))          # End connection
 
         # Save DXF file
-        doc.saveas(f"nozzle_contour_sim.dxf")
+        doc.saveas(f'contour{Profile["name"]}{Twall}_sim.dxf')
 
 
                 
@@ -1292,7 +1323,8 @@ functions.
 It_Req(HRE_1,20, 84,3000,0.7)
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 0.8 ,45, 35, 5,"OF","True")
 #HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1.5 ,45, 35, 2,"OF","True")
-HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 0.8 ,45, 35, 35, 5,Twall=10, export ="DXF_sim",plotEnable=True)
-
-THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
+for i in [2.5,5.0,7.5,10.0]:
+    HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1 ,Phi_i=45, Phi_n=35, Phi_ex=1,Twall=i, export ="DXF_sim")
+#HRE_1_Geo = CH_Geo(HRE_1, 'Bell', 10, 1 ,Phi_i=45, Phi_n=35, Phi_ex=5,Twall=10, export ="DXF_sim",plotEnable=True)
+#THERM_ANSYS(HRE_1_Geo, "Sink", "Cu", 10e-3,0,"TRUE")
 #PERF_ANSYS(HRE_1, HRE_1_Geo, "TRUE", "CSV")
