@@ -1,0 +1,2 @@
+Oxidizer Mass Flow,tank_diameter,tank_length,dry_mass,dry_inertia,nozzle_radius,grain_number,grain_separation,grain_outer_radius,grain_initial_inner_radius,grain_initial_height,grain_density,grains_center_of_mass_position,center_of_dry_mass_position,nozzle_position,burn_time,throat_radius
+0.47730553010074034,0.07612004605689413,0.28925597874965214,1.944852763788914,0,0.011669533058908676,1,0,0.036902303696783274,0.022900000000000042,0.19700021950769397,900,0.09850010975384699,0.284,0,6.535386021327027,0.011669533058908676

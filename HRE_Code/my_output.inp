@@ -1,0 +1,11 @@
+problem rocket equilibrium
+   p(bar) = 20.00000
+   o/f = 7.10000
+   pip = 19.73847
+   fac ac/at = 6.00000
+react  
+   fuel=C32H66 wt=100.00000  t,k=298.15000 
+   ox=N2O wt=100.00000  t,k=300.00000 
+output trans
+   plot p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip
+end
